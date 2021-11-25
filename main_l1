@@ -1,0 +1,118 @@
+# Задание №1
+import zipfile
+import os
+import csv
+directory_to_extract_to = 'D://lab1'
+arch_file =zipfile.ZipFile('D://arch.zip')
+#Создать новую директорию, в которую будет распакован архив
+if os.path.exists(directory_to_extract_to) is False:
+    os.mkdir(directory_to_extract_to)
+else:
+    print("directory exists")
+#С помощью модуля zipfile извлечь содержимое архива в созданную директорию
+arch_file.extractall(directory_to_extract_to)
+# Задание №2.1
+#Получить список файлов (полный путь) формата txt, находящихся в directory_to_extract_to. Сохранить полученный список в txt_files
+txt_files=[]
+for r, d, f in os.walk(directory_to_extract_to):
+    for file in f:
+        if file.endswith(".txt"):
+            txt_files.append(os.path.join(r, file))
+# print(txt_files)
+# Получить значения MD5 хеша для найденных файлов и вывести полученные данные на экран
+import hashlib
+for file in txt_files:
+    result = hashlib.md5(file.encode())
+    # print(file, result.hexdigest())
+ # Задание №3
+target_hash = "4636f9ae9fef12ebd56cd39586d33cfb"
+target_file = ''  # полный путь к искомому файлу
+target_file_data = ''  # содержимое искомого файла
+
+# Найти файл MD5 хеш которого равен target_hash в directory_to_extract_to
+for r, d,f in os.walk(directory_to_extract_to):
+    for file in f:
+        tmp = os.path.join(r, file)
+        target_file_data_1 = open(tmp, 'rb').read()
+        result = hashlib.md5(target_file_data_1).hexdigest()
+        if result == target_hash:
+            target_file = file
+            target_file_data = target_file_data_1
+            break
+
+# TODO
+print(target_file)
+print(target_file_data)
+# Задание №4
+# Ниже представлен фрагмент кода парсинга HTML страницы с помощью регулярных выражений. Возможно выполнение этого задания иным способом (например, с помощью сторонних модулей).
+
+import requests
+import re
+
+
+r = requests.get(target_file_data)
+result_dct = {}  # словарь для записи содержимого таблицы
+
+counter = 0
+# Получение списка строк таблицы
+lines = re.findall(r'<div class="Table-module_row__3TH83">.*?</div>.*?</div>.*?</div>.*?</div>.*?</div>', r.text)
+headers = re.sub(r'<.*?>', ' ', lines[0])
+headers = re.sub("\  +", " ", headers)
+# print(headers)
+del lines[0]
+ln = len(lines)-1
+for line in lines:
+    # Удаление тегов
+    temp = re.sub("<.*?>", ';', line)
+    # Значения в таблице, заключенные в скобках, не учитывать. Для этого удалить скобки и символы между ними.
+    temp = re.sub(r'\(.+?\)', '', temp)
+    # Замена последовательности символов ';' на одиночный символ
+    temp = re.sub("\;+", ';', temp)
+    # Удаление символа ';' в начале и в конце строки
+    temp = temp.strip(";")
+    # Разбитие строки на подстроки
+    tmp_split = temp.split(";")
+    # print(tmp_split)
+    # Извлечение и обработка (удаление "лишних" символов) данных из первого столбца
+    country_name = tmp_split[0]
+    # Извлечение данных из оставшихся столбцов. Данные из этих столбцов должны иметь числовое значение (прочерк можно заменить на -1).
+    if counter != ln:  # вставка из за того что не получилось удалить смайлик
+        country_name = tmp_split[0]
+        country_name = country_name[country_name.find(" ") + 2:]
+
+    else:
+        del tmp_split[0]
+        country_name = tmp_split[0]
+    if tmp_split[3] == '0*':
+        tmp_split[3] = '0'
+    if tmp_split[4] == '_':
+        tmp_split[4] = '-1'
+    # Некоторые строки содержат пробелы в виде символа '\xa0'.
+    col1_val = (re.sub("\xa0+","",tmp_split[1]))
+    col2_val = int(re.sub("\xa0+","",tmp_split[2]))
+    col3_val = int(re.sub("\xa0+","",tmp_split[3]))
+    col4_val = int(re.sub("\xa0+","",tmp_split[4]))
+    # print(country_name)
+    # print(col1_val)
+    # print(col2_val)
+    # print(col3_val)
+    # print(col4_val)
+    # Запись извлеченных данных в словарь
+    result_dct.update({country_name: (col1_val, col2_val, col3_val, col4_val)})
+    for key, value in result_dct.items():
+        print(key, ':', value)
+    # Задание №5
+    # Запись данных из полученного словаря в файл
+    output = open('data.csv', 'w')
+    output.write(headers)
+    output.write('\n')
+    for key, value in result_dct.items():
+        output.write(key + " ")
+        output.write(str(value) + "\n")
+    output.close()
+
+# Задание №6
+# Вывод данных на экран для указанного первичного ключа (первый столбец таблицы)
+
+target_country = input("Введите название страны: ")
+print(result_dct[target_country][0],result_dct[target_country][1],result_dct[target_country][2],result_dct[target_country][3])
